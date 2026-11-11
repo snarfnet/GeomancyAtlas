@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
     @Published var error:String?
     private var failed=false
     private let url:URL
-    init(){let root=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("GeomancyAtlas",isDirectory:true);url=root.appendingPathComponent("records.json")
+    init(rootOverride:URL?=nil){let root=rootOverride ?? FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("GeomancyAtlas",isDirectory:true);url=root.appendingPathComponent("records.json")
         do{try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);if FileManager.default.fileExists(atPath:url.path){let r=try JSONDecoder().decode([GeomancyRecord].self,from:Data(contentsOf:url));guard r.count<=500,r.allSatisfy({$0.isValid})else{throw CocoaError(.fileReadCorruptFile)};records=r}}catch{failed=true;self.error="保存データを読み込めません。元のファイルは保持しています。 / Could not read saved data. Original file preserved."}}
     func save(_ r:GeomancyRecord)throws{guard !failed,r.isValid else{throw CocoaError(.fileWriteUnknown)};var next=records;if let i=next.firstIndex(where:{$0.id==r.id}){next[i]=r}else{guard next.count<500 else{throw CocoaError(.fileWriteOutOfSpace)};next.insert(r,at:0)};try persist(next)}
     func remove(_ r:GeomancyRecord)throws{try persist(records.filter{$0.id != r.id})}
@@ -31,6 +31,7 @@ struct AtlasView:View {
     @State private var removing:GeomancyRecord?
     @State private var importing=false
     @State private var message:String?
+    @State private var resetRequested=false
     private let navy=Color(red:0.08,green:0.13,blue:0.23)
     private let gold=Color(red:0.86,green:0.73,blue:0.46)
     private func t(_ ja:String,_ en:String)->String{japanese ? ja : en}
@@ -42,6 +43,13 @@ struct AtlasView:View {
                 ScrollView{Group{if tab==0{atlas}else if tab==1{builder}else if tab==2{journal}else if tab==3{PracticeView(japanese:japanese)}else{guide}}.padding(20)}
             }.foregroundStyle(.white).background(navy)
                 .toolbar(.hidden,for:.navigationBar)
+                .confirmationDialog(t("編集中の内容を閉じて新しい記録を始めますか？","Close the current draft and start a new record?"),isPresented:$resetRequested,titleVisibility:.visible){Button(t("新しい記録を始める","Start new record")){record=GeomancyRecord();selected=nil}}
+                .onAppear {
+                    #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--store-builder"){tab=1;record.title="Study of the sixteen figures"}
+                    if ProcessInfo.processInfo.arguments.contains("--store-japanese"){japanese=true}
+                    #endif
+                }
                 .sheet(item:$share){AtlasShare(url:$0.url)}
                 .sheet(isPresented:Binding(get:{detail != nil},set:{if !$0{detail=nil}})){if let i=detail{figureDetail(i)}}
                 .alert(t("記録を削除しますか？","Delete this record?"),isPresented:Binding(get:{removing != nil},set:{if !$0{removing=nil}})){Button(t("削除","Delete"),role:.destructive){if let r=removing{do{try store.remove(r)}catch{message=t("削除できませんでした。","Could not save deletion.")}};removing=nil};Button(t("キャンセル","Cancel"),role:.cancel){removing=nil}}
@@ -57,7 +65,7 @@ struct AtlasView:View {
     private var builder:some View{
         VStack(alignment:.leading,spacing:18){Text(t("母図の点をタップして組む","Tap the Mothers to begin")).font(.title2)
             HStack(alignment:.top){ForEach(0..<4,id:\.self){m in VStack{Text("M\(m+1)").font(.caption.monospaced());ForEach(0..<4,id:\.self){r in Button{record.mothers[m] ^= 1 << (3-r);selected=nil}label:{Text(((record.mothers[m] >> (3-r)) & 1)==1 ? "●" : "● ●").font(.system(size:18)).frame(maxWidth:.infinity).frame(height:36).background(.white.opacity(0.07))}.accessibilityLabel(t("母図\(m+1)の第\(r+1)段","Mother \(m+1), row \(r+1)"))}}}}
-            HStack{Button(t("無作為に点を置く","Randomize")){record.mothers=(0..<4).map{_ in Int.random(in:0..<16)};selected=nil};Spacer();Button(t("新しい記録","New record")){record=GeomancyRecord();selected=nil}}
+            HStack{Button(t("無作為に点を置く","Randomize")){record.mothers=(0..<4).map{_ in Int.random(in:0..<16)};selected=nil};Spacer();Button(t("新しい記録","New record")){resetRequested=true}}
             Picker(t("生成段階","Construction"),selection:$step){ForEach(0..<6,id:\.self){i in Text(t(["母図","娘図","姪図","証人","判定者","追加図"][i],["Mothers","Daughters","Nieces","Witnesses","Judge","Extra"][i])).tag(i)}}
             if let chart=ShieldChart(mothers:record.mothers){
                 let groups=[[0,1,2,3],[4,5,6,7],[8,9,10,11],[12,13],[14],[15]]

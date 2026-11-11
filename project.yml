@@ -29,3 +29,16 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Geomancy Atlas
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    scheme:
+      testTargets: [AtlasRenderTests]
+  AtlasRenderTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [RenderTests]
+    dependencies:
+      - target: GeomancyAtlas
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.tokyonasu.GeomancyAtlas.tests

@@ -2,6 +2,9 @@ name: Geomancy Atlas validation
 on:
   workflow_dispatch:
   push:
+concurrency:
+  group: geomancy-validation-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -37,6 +40,18 @@ jobs:
           xcrun simctl launch "$DEVICE" com.tokyonasu.GeomancyAtlas --store-screenshot
           sleep 30
           xcrun simctl io "$DEVICE" screenshot "store-shots/${DEVICE_KIND}-main.png"
+          xcrun simctl terminate "$DEVICE" com.tokyonasu.GeomancyAtlas
+          xcrun simctl launch "$DEVICE" com.tokyonasu.GeomancyAtlas --store-builder
+          sleep 4
+          xcrun simctl io "$DEVICE" screenshot "store-shots/${DEVICE_KIND}-builder.png"
+          xcrun simctl terminate "$DEVICE" com.tokyonasu.GeomancyAtlas
+          xcrun simctl launch "$DEVICE" com.tokyonasu.GeomancyAtlas --store-japanese
+          sleep 4
+          xcrun simctl io "$DEVICE" screenshot "store-shots/${DEVICE_KIND}-ja.png"
+          if [ "$DEVICE_KIND" = "iphone" ]; then
+            xcodebuild test -project GeomancyAtlas.xcodeproj -scheme GeomancyAtlas -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build-screenshots CODE_SIGNING_ALLOWED=NO > store-shots/test.log 2>&1
+            find "$HOME/Library/Developer/CoreSimulator/Devices" -type d -name atlas-artifacts -exec cp -R {} store-shots/ \;
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

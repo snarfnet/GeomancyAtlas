@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
     private var failed=false
     private let url:URL
     init(){let root=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("GeomancyAtlas",isDirectory:true);url=root.appendingPathComponent("records.json")
-        do{try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);if FileManager.default.fileExists(atPath:url.path){let r=try JSONDecoder().decode([GeomancyRecord].self,from:Data(contentsOf:url));guard r.count<=500,r.allSatisfy({$0.isValid})else{throw CocoaError(.fileReadCorruptFile)};records=r}}catch{failed=true;error="保存データを読み込めません。元のファイルは保持しています。 / Could not read saved data. Original file preserved."}}
+        do{try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);if FileManager.default.fileExists(atPath:url.path){let r=try JSONDecoder().decode([GeomancyRecord].self,from:Data(contentsOf:url));guard r.count<=500,r.allSatisfy({$0.isValid})else{throw CocoaError(.fileReadCorruptFile)};records=r}}catch{failed=true;self.error="保存データを読み込めません。元のファイルは保持しています。 / Could not read saved data. Original file preserved."}}
     func save(_ r:GeomancyRecord)throws{guard !failed,r.isValid else{throw CocoaError(.fileWriteUnknown)};var next=records;if let i=next.firstIndex(where:{$0.id==r.id}){next[i]=r}else{guard next.count<500 else{throw CocoaError(.fileWriteOutOfSpace)};next.insert(r,at:0)};try persist(next)}
     func remove(_ r:GeomancyRecord)throws{try persist(records.filter{$0.id != r.id})}
     private func persist(_ r:[GeomancyRecord])throws{guard !failed else{throw CocoaError(.fileWriteUnknown)};try JSONEncoder().encode(r).write(to:url,options:.atomic);records=r}

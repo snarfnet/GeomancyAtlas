@@ -38,8 +38,8 @@ struct AtlasView:View {
         NavigationStack{
             VStack(spacing:0){
                 HStack(alignment:.firstTextBaseline){VStack(alignment:.leading){Text("Geomancy Atlas").font(.system(size:30,weight:.medium,design:.serif));Text(t("古典ジオマンシー図譜","A study of sixteen figures")).font(.caption).foregroundStyle(gold)};Spacer();Button(japanese ? "EN" : "日本語"){japanese.toggle()}.font(.caption).padding(8).overlay(Capsule().stroke(gold))}.padding(20)
-                Picker("Section",selection:$tab){Text(t("図譜","Figures")).tag(0);Text(t("図表を組む","Build")).tag(1);Text(t("記録","Journal")).tag(2);Text(t("読む","Guide")).tag(3)}.pickerStyle(.segmented).padding(.horizontal)
-                ScrollView{Group{if tab==0{atlas}else if tab==1{builder}else if tab==2{journal}else{guide}}.padding(20)}
+                Picker("Section",selection:$tab){Text(t("図譜","Figures")).tag(0);Text(t("図表を組む","Build")).tag(1);Text(t("記録","Journal")).tag(2);Text(t("練習","Practice")).tag(3);Text(t("読む","Guide")).tag(4)}.pickerStyle(.segmented).padding(.horizontal)
+                ScrollView{Group{if tab==0{atlas}else if tab==1{builder}else if tab==2{journal}else if tab==3{PracticeView(japanese:japanese)}else{guide}}.padding(20)}
             }.foregroundStyle(.white).background(navy)
                 .toolbar(.hidden,for:.navigationBar)
                 .sheet(item:$share){AtlasShare(url:$0.url)}
@@ -69,7 +69,7 @@ struct AtlasView:View {
             }
             TextField(t("記録の名前（80字まで）","Record title (up to 80 characters)"),text:$record.title).textFieldStyle(.roundedBorder)
             TextField(t("観察・読み取りのメモ（4000字まで）","Observation notes (up to 4,000 characters)"),text:$record.notes,axis:.vertical).lineLimit(3...8).textFieldStyle(.roundedBorder)
-            HStack{Button(t("記録を保存","Save record")){do{try store.save(record);message=t("端末内に保存しました。","Saved on this device.")}catch{message=t("保存できませんでした。文字数・保存件数を確認してください。","Could not save. Check text length and the 500-record limit.")}}.disabled(!record.isValid);Spacer();Menu(t("書き出し","Export")){Button("SVG"){export("svg")};Button("JSON"){export("json")}}.disabled(!record.isValid)}
+            HStack{Button(t("記録を保存","Save record")){do{try store.save(record);message=t("端末内に保存しました。","Saved on this device.")}catch{message=t("保存できませんでした。文字数・保存件数を確認してください。","Could not save. Check text length and the 500-record limit.")}}.disabled(!record.isValid);Spacer();Menu(t("書き出し","Export")){Button("PNG"){export("png")};Button("PDF"){export("pdf")};Button("SVG"){export("svg")};Button("JSON"){export("json")}}.disabled(!record.isValid)}
             Text(t("点の配置と計算を学ぶための図表です。将来の出来事を予測する機能はありません。","A study chart of figures and their construction. It does not predict future events.")).font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -80,7 +80,7 @@ struct AtlasView:View {
     private var guide:some View{VStack(alignment:.leading,spacing:20){Text(t("図表の読み方を、手順から。","Learn the construction first.")).font(.title2)
         Text(t("四段に1点または2点を置くと、組み合わせは16通りです。最初の四つを母図と呼びます。母図の横の段を取り出して縦に並べ直すと、四つの娘図ができます。","Four rows with one or two dots give sixteen possible figures. The four inputs are Mothers. Transpose their rows to obtain the four Daughters."))
         Text(t("隣り合う図の各段を足し、奇数なら1点、偶数なら2点にします。母図と娘図から姪図、姪図から証人、二つの証人から判定者ができます。本アプリの追加図は、判定者と第一母図から作ります。","Combine neighboring figures row by row: odd sums give one dot, even sums two. This produces Nieces, Witnesses and a Judge. The optional Reconciler combines the Judge and first Mother."))
-        Text(t("この試作はラテン語名・和訳・英訳と図形の構築を扱います。惑星対応や吉凶の解釈は流派差があるため、まだ収録していません。","This prototype covers Latin names, Japanese and English glosses, and chart construction. Planetary attributions and interpretive judgments are not yet included."))
+        Text(t("このアプリはラテン語名・和訳・英訳と図形の構築を扱います。惑星対応や吉凶の解釈は流派差があるため、収録していません。","This app covers Latin names, Japanese and English glosses, and chart construction. Planetary attributions and interpretive judgments are not yet included."))
         Text(t("資料と編集方針","Sources and editorial scope")).font(.headline)
         Text("Cornelius Agrippa, Three Books of Occult Philosophy, Book II, Chapter 48 (1651 English edition).")
         Link(t("古典の図形一覧を読む","Read the historical figure list"),destination:URL(string:"https://magick.me/library/three-books-of-occult-philosophy/132")!)
@@ -88,6 +88,6 @@ struct AtlasView:View {
         Text(t("本文は独自に要約し、図形は点の配置から描画しています。資料画像・現代の解説文は転載していません。記録は端末内に保存し、広告・追跡・会員登録はありません。外部リンクはブラウザーで開きます。","Explanations are written for this app; figures are drawn from dot patterns. No manuscript scans or modern commentary are reproduced. Records stay on your device. No ads, tracking or account. External links open in your browser.")).font(.caption).foregroundStyle(.secondary)
     }}
     private func figureDetail(_ i:Int)->some View{let f=GeomanticFigure.all[i];return VStack(spacing:24){FigureDots(value:i).scaleEffect(2).frame(height:120);Text(f.latin).font(.largeTitle);Text(japanese ? f.japanese : f.english).font(.title2);Text(f.rows.map(String.init).joined(separator:" · ")).font(.title.monospaced());Text(t("上から順に各段の点の数を示しています。名称の訳は語義の手がかりです。","Read the dot counts from top to bottom. The translated name is a lexical gloss.")).multilineTextAlignment(.center);Button(t("閉じる","Close")){detail=nil}}.padding(30)}
-    private func export(_ ext:String){do{let data:Data;if ext=="svg"{guard let svg=ChartSVG.make(record)else{return};data=Data(svg.utf8)}else{data=try JSONEncoder().encode(record)};let u=FileManager.default.temporaryDirectory.appendingPathComponent("geomancy-\(UUID()).\(ext)");try data.write(to:u,options:.atomic);share=AtlasFile(url:u)}catch{message=t("書き出せませんでした。","Could not export.")}}
+    private func export(_ ext:String){do{let data:Data;if ext=="png"{guard let png=ChartPrint.png(record)else{return};data=png}else if ext=="pdf"{data=ChartPrint.pdf(record)}else if ext=="svg"{guard let svg=ChartSVG.make(record)else{return};data=Data(svg.utf8)}else{data=try JSONEncoder().encode(record)};let u=FileManager.default.temporaryDirectory.appendingPathComponent("geomancy-\(UUID()).\(ext)");try data.write(to:u,options:.atomic);share=AtlasFile(url:u)}catch{message=t("書き出せませんでした。","Could not export.")}}
 }
 struct AtlasShare:UIViewControllerRepresentable{let url:URL;func makeUIViewController(context:Context)->UIActivityViewController{UIActivityViewController(activityItems:[url],applicationActivities:nil)};func updateUIViewController(_ v:UIActivityViewController,context:Context){}}
